@@ -1,0 +1,29 @@
+version: 2.1
+
+jobs:
+  build:
+    environment:
+      _JAVA_OPTIONS: "-Xmx3g"
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2"
+    docker:
+      - image: cimg/openjdk:11.0.13
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASSWORD
+    steps:
+      - checkout
+      - run:
+          command: |
+            cd demo/app/src/test/java
+            CLASSNAMES=$(circleci tests glob "**/*.java" \
+             | cut -c 1- | sed 's@/@.@g' \
+             | sed 's/.\{5\}$//' \
+             | circleci tests split --split-by=timings --timings-type=classname)
+            cd ../../..
+            GRADLE_ARGS=$(echo $CLASSNAMES | aws '{for (i=1;i<=NF;i++) print "--tests",$i}')
+            echo "Prepared arguments for Gradle: $GRADLE_ARGS"
+workflows:
+  version: 2
+  workflow:
+    jobs:
+      - build
